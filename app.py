@@ -37,29 +37,43 @@ def preprocess_data(data, training_columns):
 
 st.header("Autism Screening Tool")
 st.markdown("""
-    This tool predicts Autism Spectrum Disorder (ASD) based on patient data.  
-    - **A1-A10 Scores**: Enter 0 (No) or 1 (Yes) for behavioral questions.
-    - **Other Fields**: Provide accurate details (e.g., age, gender).
-    - All fields are required. Click **Predict** to see the result.
+    This tool predicts Autism Spectrum Disorder (ASD) using a machine learning model.  
+    - **Behavioral Scores**: Answer 10 questions (0 = No, 1 = Yes) about observed behaviors.
+    - **Patient Details**: Provide demographic and medical history.
+    - Submit to see the prediction. Results are for research purposes only.
 """)
 st.markdown("<style>.stForm {border: 1px solid #ddd; padding: 20px; border-radius: 10px;}</style>", unsafe_allow_html=True)
 
-st.subheader("Behavioral Scores (0 = No, 1 = Yes)")
 with st.form("patient_form"):
+    st.markdown("---")
+    st.subheader("Behavioral Scores")
+    st.markdown("Answer the following questions about the individual's behavior (Yes = 1, No = 0).")
+    
     col1, col2 = st.columns(2)
     with col1:
-        a1 = st.number_input("A1_Score (0/1)", min_value=0, max_value=1, value=0)
-        a2 = st.number_input("A2_Score (0/1)", min_value=0, max_value=1, value=0)
-        a3 = st.number_input("A3_Score (0/1)", min_value=0, max_value=1, value=0)
-        a4 = st.number_input("A4_Score (0/1)", min_value=0, max_value=1, value=0)
-        a5 = st.number_input("A5_Score (0/1)", min_value=0, max_value=1, value=0)
+        a1 = st.selectbox("A1: Notices small details others miss (e.g., patterns, sounds)?", 
+                          ["No", "Yes"], index=0, key="a1")
+        a2 = st.selectbox("A2: Prefers repetitive routines, upset by changes?", 
+                          ["No", "Yes"], index=0, key="a2")
+        a3 = st.selectbox("A3: Struggles to understand others’ feelings?", 
+                          ["No", "Yes"], index=0, key="a3")
+        a4 = st.selectbox("A4: Finds conversations hard to maintain?", 
+                          ["No", "Yes"], index=0, key="a4")
+        a5 = st.selectbox("A5: Has intense interest in specific topics?", 
+                          ["No", "Yes"], index=0, key="a5")
     with col2:
-        a6 = st.number_input("A6_Score (0/1)", min_value=0, max_value=1, value=0)
-        a7 = st.number_input("A7_Score (0/1)", min_value=0, max_value=1, value=0)
-        a8 = st.number_input("A8_Score (0/1)", min_value=0, max_value=1, value=0)
-        a9 = st.number_input("A9_Score (0/1)", min_value=0, max_value=1, value=0)
-        a10 = st.number_input("A10_Score (0/1)", min_value=0, max_value=1, value=0)
+        a6 = st.selectbox("A6: Has difficulty making friends?", 
+                          ["No", "Yes"], index=0, key="a6")
+        a7 = st.selectbox("A7: Engages in repetitive movements (e.g., hand-flapping)?", 
+                          ["No", "Yes"], index=0, key="a7")
+        a8 = st.selectbox("A8: Finds social situations confusing?", 
+                          ["No", "Yes"], index=0, key="a8")
+        a9 = st.selectbox("A9: Has sensitivity to sounds, lights, or textures?", 
+                          ["No", "Yes"], index=0, key="a9")
+        a10 = st.selectbox("A10: Struggles to interpret facial expressions?", 
+                           ["No", "Yes"], index=0, key="a10")
     
+    st.markdown("---")
     st.subheader("Patient Details")
     col3, col4 = st.columns(2)
     with col3:
@@ -95,11 +109,19 @@ if submit:
         st.error("Age must be greater than 0.")
     else:
         patient_data = pd.DataFrame({
-            'A1_Score': [a1], 'A2_Score': [a2], 'A3_Score': [a3], 'A4_Score': [a4], 'A5_Score': [a5],
-            'A6_Score': [a6], 'A7_Score': [a7], 'A8_Score': [a8], 'A9_Score': [a9], 'A10_Score': [a10],
-            'age': [age], 'gender': [gender], 'ethnicity': [ethnicity], 'jundice': [jaundice],
-            'austim': [austim], 'contry_of_res': [country], 'used_app_before': [app_before],
-            'age_desc': [age_desc], 'relation': [relation]
+            'A1_Score': [1 if a1 == "Yes" else 0],
+            'A2_Score': [1 if a2 == "Yes" else 0],
+            'A3_Score': [1 if a3 == "Yes" else 0],
+            'A4_Score': [1 if a4 == "Yes" else 0],
+            'A5_Score': [1 if a5 == "Yes" else 0],
+            'A6_Score': [1 if a6 == "Yes" else 0],
+            'A7_Score': [1 if a7 == "Yes" else 0],
+            'A8_Score': [1 if a8 == "Yes" else 0],
+            'A9_Score': [1 if a9 == "Yes" else 0],
+            'A10_Score': [1 if a10 == "Yes" else 0],
+            'age': [age], 'gender': [gender], 'ethnicity': [ethnicity],
+            'jundice': [jaundice], 'austim': [austim], 'country_of_res': [country],
+            'used_app_before': [app_before], 'age_desc': [age_desc], 'relation': [relation]
         })
         
         try:
