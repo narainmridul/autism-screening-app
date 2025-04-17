@@ -36,7 +36,7 @@ st.markdown("""
     - **Patient Details**: Provide demographic and medical history.
     - Submit to see the prediction. Results are for research purposes only.
 """)
-st.markdown("<style>.stForm {border: 1px solid #ddd; padding: 20px; border-radius: 10px;}</style>", unsafe_allow_html=True)
+st.markdown("<style>.stForm {border: 1px solid #ddd; padding: 25px; border-radius: 10px; margin-top: 10px;}</style>", unsafe_allow_html=True)
 
 with st.form("patient_form"):
     st.markdown("---")
@@ -69,16 +69,22 @@ with st.form("patient_form"):
     
     st.markdown("---")
     st.subheader("Patient Details")
+    st.markdown("Provide demographic and medical history information below.")
     col3, col4 = st.columns(2)
     with col3:
-        age = st.number_input("Age", min_value=1, max_value=100, value=None, format="%d")
+        # Age input with session state
+        if 'age' not in st.session_state:
+            st.session_state.age = None
+        age_input = st.number_input("Age", min_value=1, max_value=100, value=st.session_state.age, 
+                                   format="%d", key="age_input")
+        if age_input != st.session_state.age:
+            st.session_state.age = age_input
         gender = st.selectbox("Gender", ['Male', 'Female'], format_func=lambda x: x)
         ethnicity = st.selectbox("Ethnicity", [
             "White-European", "Asian", "Black", "Hispanic", "Latino", 
             "Middle Eastern", "Others", "Pasifika", "South Asian", "Turkish"
         ])
         jaundice = st.selectbox("Born with Jaundice", ['No', 'Yes'])
-        austim = st.selectbox("Family History of Autism", ['No', 'Yes'])
     with col4:
         country = st.selectbox("Country of Residence", [
             "United States", "United Kingdom", "India", "Brazil", "Australia",
@@ -88,21 +94,22 @@ with st.form("patient_form"):
         relation = st.selectbox("Relation to Patient", [
             "Self", "Parent", "Health care professional", "Relative", "Others"
         ], index=0)
+        austim = st.selectbox("Family History of Autism", ['No', 'Yes'])
 
     submit = st.form_submit_button("Predict")
 
 if submit:
     required_fields = {
-        'Age': age, 'Ethnicity': ethnicity, 'Country': country, 'Relation': relation
+        'Age': st.session_state.age, 'Ethnicity': ethnicity, 'Country': country, 'Relation': relation
     }
     empty_fields = [k for k, v in required_fields.items() if v is None or v == '']
     if empty_fields:
         st.error(f"Please fill in: {', '.join(empty_fields)}")
-    elif age <= 0:
+    elif st.session_state.age <= 0:
         st.error("Age must be greater than 0.")
     else:
         # Derive age_desc based on age
-        age_desc = "18 and more" if age >= 18 else "Under 18"
+        age_desc = "18 and more" if st.session_state.age >= 18 else "Under 18"
         
         patient_data = pd.DataFrame({
             'A1_Score': [1 if a1 == "Yes" else 0],
@@ -115,7 +122,7 @@ if submit:
             'A8_Score': [1 if a8 == "Yes" else 0],
             'A9_Score': [1 if a9 == "Yes" else 0],
             'A10_Score': [1 if a10 == "Yes" else 0],
-            'age': [age], 'gender': [gender], 'ethnicity': [ethnicity],
+            'age': [st.session_state.age], 'gender': [gender], 'ethnicity': [ethnicity],
             'jundice': [jaundice], 'austim': [austim], 'country_of_res': [country],
             'used_app_before': [app_before], 'age_desc': [age_desc], 'relation': [relation]
         })
