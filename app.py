@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import joblib
 
+st.set_page_config(page_title="Autism Screening", layout="centered")
+
 # Cache model and columns
 @st.cache_data
 def load_data():
@@ -33,7 +35,6 @@ def preprocess_data(data, training_columns):
     
     return data
 
-st.set_page_config(page_title="Autism Screening", layout="centered")
 st.header("Autism Screening Tool")
 st.markdown("""
     This tool predicts Autism Spectrum Disorder (ASD) based on patient data.  
