@@ -2,42 +2,48 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load model and columns
-model = joblib.load('random_forest_model.pkl')
-training_columns = pd.read_csv('training_columns.csv', header=None).squeeze()
+# Cache model and columns
+@st.cache_data
+def load_data():
+    model = joblib.load('random_forest_model.pkl')
+    columns = pd.read_csv('training_columns.csv', header=None).squeeze()
+    return model, columns
+
+model, training_columns = load_data()
 
 def preprocess_data(data, training_columns):
+    # Copy to avoid modifying input
+    data = data.copy()
+    
     # Handle missing values
-    numeric_cols = data.select_dtypes(include=['number']).columns
-    data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].median())
-    non_numeric_cols = data.select_dtypes(exclude=['number']).columns
-    for col in non_numeric_cols:
-        data[col] = data[col].fillna(data[col].mode()[0])
+    data = data.fillna({
+        col: data[col].median() if data[col].dtype in ['int64', 'float64'] else data[col].mode()[0]
+        for col in data.columns
+    })
     
-    # Create dummy variables for categorical columns
-    data = pd.get_dummies(data, columns=non_numeric_cols, dtype=int)
+    # Create dummy variables
+    categorical_cols = data.select_dtypes(include=['object']).columns
+    data = pd.get_dummies(data, columns=categorical_cols, dtype=int)
     
-    # Debug: Check columns after get_dummies
-    # st.write("Columns after get_dummies:", data.columns.tolist())
-    
-    # Align columns with training_columns
+    # Align with training columns
     missing_cols = set(training_columns) - set(data.columns)
     for col in missing_cols:
-        data[col] = 0  # Add missing columns with zeros
-    extra_cols = set(data.columns) - set(training_columns)
-    data = data.drop(columns=extra_cols, errors='ignore')  # Drop extra columns
-    
-    # Reorder columns to match training_columns
+        data[col] = 0
     data = data[training_columns]
-    
-    # Debug: Verify final columns
-    # st.write("Final processed columns:", data.columns.tolist())
     
     return data
 
-st.title("Autism Screening Prediction")
-st.write("Enter patient details to predict ASD.")
+st.set_page_config(page_title="Autism Screening", layout="centered")
+st.header("Autism Screening Tool")
+st.markdown("""
+    This tool predicts Autism Spectrum Disorder (ASD) based on patient data.  
+    - **A1-A10 Scores**: Enter 0 (No) or 1 (Yes) for behavioral questions.
+    - **Other Fields**: Provide accurate details (e.g., age, gender).
+    - All fields are required. Click **Predict** to see the result.
+""")
+st.markdown("<style>.stForm {border: 1px solid #ddd; padding: 20px; border-radius: 10px;}</style>", unsafe_allow_html=True)
 
+st.subheader("Behavioral Scores (0 = No, 1 = Yes)")
 with st.form("patient_form"):
     col1, col2 = st.columns(2)
     with col1:
@@ -53,28 +59,56 @@ with st.form("patient_form"):
         a9 = st.number_input("A9_Score (0/1)", min_value=0, max_value=1, value=0)
         a10 = st.number_input("A10_Score (0/1)", min_value=0, max_value=1, value=0)
     
-    age = st.number_input("Age", min_value=0.0, value=30.0)
-    gender = st.selectbox("Gender", ['m', 'f'])
-    ethnicity = st.text_input("Ethnicity", value="White-European")
-    jaundice = st.selectbox("Jaundice", ['no', 'yes'])
-    austim = st.selectbox("Family Autism", ['no', 'yes'])
-    country = st.text_input("Country", value="United States")
-    app_before = st.selectbox("Used App Before", ['no', 'yes'])
-    age_desc = st.text_input("Age Description", value="18 and more")
-    relation = st.text_input("Relation", value="Self")
+    st.subheader("Patient Details")
+    col3, col4 = st.columns(2)
+    with col3:
+        age = st.number_input("Age", min_value=1.0, max_value=100.0, value=30.0)
+        gender = st.selectbox("Gender", ['Male', 'Female'], format_func=lambda x: x)
+        ethnicity = st.selectbox("Ethnicity", [
+            "White-European", "Asian", "Black", "Hispanic", "Latino", 
+            "Middle Eastern", "Others", "Pasifika", "South Asian", "Turkish"
+        ])
+        jaundice = st.selectbox("Born with Jaundice", ['No', 'Yes'])
+        austim = st.selectbox("Family History of Autism", ['No', 'Yes'])
+    with col4:
+        country = st.selectbox("Country of Residence", [
+            "United States", "United Kingdom", "India", "Brazil", "Australia",
+            "Canada", "New Zealand", "Other"
+        ])
+        app_before = st.selectbox("Previously Used App", ['No', 'Yes'])
+        age_desc = st.text_input("Age Group", value="18 and more")
+        relation = st.text_input("Relation to Patient", value="Self")
 
     submit = st.form_submit_button("Predict")
-
-if submit:
-    patient_data = pd.DataFrame({
-        'A1_Score': [a1], 'A2_Score': [a2], 'A3_Score': [a3], 'A4_Score': [a4], 'A5_Score': [a5],
-        'A6_Score': [a6], 'A7_Score': [a7], 'A8_Score': [a8], 'A9_Score': [a9], 'A10_Score': [a10],
-        'age': [age], 'gender': [gender], 'ethnicity': [ethnicity], 'jundice': [jaundice],
-        'austim': [austim], 'contry_of_res': [country], 'used_app_before': [app_before],
-        'age_desc': [age_desc], 'relation': [relation]
-    })
     
-    processed_data = preprocess_data(patient_data, training_columns)
-    prediction = model.predict(processed_data)[0]
-    result = 'YES (ASD)' if prediction == 1 else 'NO (No ASD)'
-    st.success(f"Prediction: {result}")
+if submit:
+    # Validate inputs
+    required_fields = {
+        'Ethnicity': ethnicity, 'Country': country, 
+        'Age Description': age_desc, 'Relation': relation
+    }
+    empty_fields = [k for k, v in required_fields.items() if not v]
+    if empty_fields:
+        st.error(f"Please fill in: {', '.join(empty_fields)}")
+    elif age <= 0:
+        st.error("Age must be greater than 0.")
+    else:
+        patient_data = pd.DataFrame({
+            'A1_Score': [a1], 'A2_Score': [a2], 'A3_Score': [a3], 'A4_Score': [a4], 'A5_Score': [a5],
+            'A6_Score': [a6], 'A7_Score': [a7], 'A8_Score': [a8], 'A9_Score': [a9], 'A10_Score': [a10],
+            'age': [age], 'gender': [gender], 'ethnicity': [ethnicity], 'jundice': [jaundice],
+            'austim': [austim], 'contry_of_res': [country], 'used_app_before': [app_before],
+            'age_desc': [age_desc], 'relation': [relation]
+        })
+        
+        try:
+            processed_data = preprocess_data(patient_data, training_columns)
+            prediction = model.predict(processed_data)[0]
+            result = 'YES (ASD)' if prediction == 1 else 'NO (No ASD)'
+            st.success(f"Prediction: {result}")
+            if prediction == 1:
+                st.markdown("**Note**: A 'YES (ASD)' prediction suggests potential ASD traits. Consult a healthcare professional.")
+            else:
+                st.markdown("**Note**: A 'NO (No ASD)' prediction indicates lower likelihood of ASD.")
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
