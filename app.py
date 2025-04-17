@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 
+# Set page config first
 st.set_page_config(page_title="Autism Screening", layout="centered")
 
 # Cache model and columns
@@ -14,31 +15,24 @@ def load_data():
 model, training_columns = load_data()
 
 def preprocess_data(data, training_columns):
-    # Copy to avoid modifying input
     data = data.copy()
-    
-    # Handle missing values
     data = data.fillna({
         col: data[col].median() if data[col].dtype in ['int64', 'float64'] else data[col].mode()[0]
         for col in data.columns
     })
-    
-    # Create dummy variables
     categorical_cols = data.select_dtypes(include=['object']).columns
     data = pd.get_dummies(data, columns=categorical_cols, dtype=int)
-    
-    # Align with training columns
     missing_cols = set(training_columns) - set(data.columns)
     for col in missing_cols:
         data[col] = 0
     data = data[training_columns]
-    
     return data
 
+# UI Setup
 st.header("Autism Screening Tool")
 st.markdown("""
     This tool predicts Autism Spectrum Disorder (ASD) using a machine learning model.  
-    - **Behavioral Scores**: Answer 10 questions (0 = No, 1 = Yes) about observed behaviors.
+    - **Behavioral Scores**: Answer 10 questions (Yes = 1, No = 0) about observed behaviors.
     - **Patient Details**: Provide demographic and medical history.
     - Submit to see the prediction. Results are for research purposes only.
 """)
@@ -77,7 +71,7 @@ with st.form("patient_form"):
     st.subheader("Patient Details")
     col3, col4 = st.columns(2)
     with col3:
-        age = st.number_input("Age", min_value=1.0, max_value=100.0, value=30.0)
+        age = st.number_input("Age", min_value=1, max_value=100, value=None, format="%d")
         gender = st.selectbox("Gender", ['Male', 'Female'], format_func=lambda x: x)
         ethnicity = st.selectbox("Ethnicity", [
             "White-European", "Asian", "Black", "Hispanic", "Latino", 
@@ -91,23 +85,25 @@ with st.form("patient_form"):
             "Canada", "New Zealand", "Other"
         ])
         app_before = st.selectbox("Previously Used App", ['No', 'Yes'])
-        age_desc = st.text_input("Age Group", value="18 and more")
-        relation = st.text_input("Relation to Patient", value="Self")
+        relation = st.selectbox("Relation to Patient", [
+            "Self", "Parent", "Health care professional", "Relative", "Others"
+        ], index=0)
 
     submit = st.form_submit_button("Predict")
-    
+
 if submit:
-    # Validate inputs
     required_fields = {
-        'Ethnicity': ethnicity, 'Country': country, 
-        'Age Description': age_desc, 'Relation': relation
+        'Age': age, 'Ethnicity': ethnicity, 'Country': country, 'Relation': relation
     }
-    empty_fields = [k for k, v in required_fields.items() if not v]
+    empty_fields = [k for k, v in required_fields.items() if v is None or v == '']
     if empty_fields:
         st.error(f"Please fill in: {', '.join(empty_fields)}")
     elif age <= 0:
         st.error("Age must be greater than 0.")
     else:
+        # Derive age_desc based on age
+        age_desc = "18 and more" if age >= 18 else "Under 18"
+        
         patient_data = pd.DataFrame({
             'A1_Score': [1 if a1 == "Yes" else 0],
             'A2_Score': [1 if a2 == "Yes" else 0],
